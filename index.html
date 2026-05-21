@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบค้นหารหัส ICD-10</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <style>
+    /* ── CSS Variables (theme) ─────────────────────────────────── */
+    :root {
+      --clr-dark:    #1e3a8a;
+      --clr-primary: #2563eb;
+      --clr-accent:  #3b82f6;
+      --clr-light:   #eff6ff;
+      --clr-badge-bg:#1d4ed8;
+      --clr-code-bg: #1e3a8a;
+    }
+
+    /* ── Base ───────────────────────────────────────────────────── */
+    body { background: #f1f5f9; font-family: 'Segoe UI', sans-serif; }
+    .container-fluid { max-width: 1200px; }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    .app-header {
+      background: linear-gradient(135deg, var(--clr-dark) 0%, var(--clr-primary) 100%);
+      padding: .75rem 0;
+      box-shadow: 0 2px 14px rgba(0,0,0,.18);
+    }
+    .app-header h1 { color: #fff; font-size: 1.2rem; font-weight: 700; margin: 0; }
+    .app-header .sub  { color: rgba(255,255,255,.65); font-size: .75rem; }
+    .app-header .credit { color: rgba(255,255,255,.5); font-size: .7rem; margin-top: 1px; }
+    @media (max-width: 576px) {
+      .app-header h1 { font-size: 1rem; }
+      .app-header .sub { font-size: .68rem; }
+      .header-right { align-items: flex-start !important; }
+    }
+
+    /* ── Theme dots ─────────────────────────────────────────────── */
+    .theme-dot {
+      width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+      border: 2.5px solid rgba(255,255,255,.4);
+      transition: transform .15s, border-color .15s;
+      display: inline-block;
+    }
+    .theme-dot:hover, .theme-dot.active { transform: scale(1.25); border-color: #fff; }
+
+    /* ── Tabs ───────────────────────────────────────────────────── */
+    .nav-tabs {
+      border-bottom: 2px solid #e2e8f0;
+      flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+    .nav-tabs .nav-item { flex-shrink: 0; }
+    .nav-tabs .nav-link {
+      color: #64748b; border: none; border-radius: 0;
+      padding: .6rem .9rem; font-weight: 500; transition: color .2s;
+      white-space: nowrap;
+    }
+    .nav-tabs .nav-link:hover { color: var(--clr-primary); background: var(--clr-light); }
+    .nav-tabs .nav-link.active {
+      color: var(--clr-primary); border-bottom: 3px solid var(--clr-primary);
+      background: transparent; font-weight: 700;
+    }
+
+    /* ── Cards ──────────────────────────────────────────────────── */
+    .card { border: none; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+
+    /* ── Type toggle buttons ─────────────────────────────────────── */
+    .type-btn-group { width: 100%; }
+    .type-btn-group .btn {
+      font-size: .82rem; padding: .35rem .9rem; flex: 1;
+      border-color: var(--clr-accent); color: var(--clr-primary);
+      outline: none !important; box-shadow: none !important;
+    }
+    .type-btn-group .btn.active {
+      background: var(--clr-primary); color: #fff;
+      border-color: var(--clr-primary);
+    }
+    .type-btn-group .btn:not(.active):hover { background: var(--clr-light); }
+    @media (max-width: 400px) {
+      .type-btn-group .btn small { display: none; }
+    }
+
+    /* ── Code badge ─────────────────────────────────────────────── */
+    .code-badge {
+      font-family: 'Courier New', monospace; font-size: .78rem; font-weight: 700;
+      background: var(--clr-code-bg); color: #fff;
+      padding: 2px 9px; border-radius: 5px; white-space: nowrap;
+    }
+
+    /* ── Result row ─────────────────────────────────────────────── */
+    .result-row {
+      display: flex; align-items: flex-start; gap: .75rem;
+      padding: .6rem .9rem; border-radius: 8px;
+      border-left: 3px solid var(--clr-accent);
+      background: #fff; margin-bottom: 5px;
+      transition: transform .15s, box-shadow .15s; cursor: default;
+    }
+    .result-row:hover { transform: translateX(3px); box-shadow: 0 3px 10px rgba(0,0,0,.1); }
+    .result-row .desc { font-size: .875rem; line-height: 1.4; color: #1e293b; }
+
+    /* ── Chapter cards ──────────────────────────────────────────── */
+    .chapter-card {
+      background: #fff; border-radius: 8px; padding: .5rem .75rem;
+      cursor: pointer; margin-bottom: 5px;
+      border: 1px solid #e2e8f0; transition: background .15s, border-color .15s;
+    }
+    .chapter-card:hover, .chapter-card.active { background: var(--clr-light); border-color: var(--clr-accent); }
+    .chapter-card .range { font-size: .71rem; font-weight: 700; color: var(--clr-primary); }
+    .chapter-card .cdesc { font-size: .7rem; color: #64748b; line-height: 1.3; }
+
+    /* ── Stat pill ──────────────────────────────────────────────── */
+    .stat-pill {
+      display: inline-block; background: var(--clr-light); color: var(--clr-primary);
+      border-radius: 999px; font-size: .78rem; padding: 1px 12px; font-weight: 600;
+      margin-bottom: .75rem;
+    }
+
+    /* ── Accordion ──────────────────────────────────────────────── */
+    .accordion-button { font-size: .85rem; }
+    .accordion-button:not(.collapsed) { background: var(--clr-light); color: var(--clr-primary); box-shadow: none; }
+    .accordion-item { border-radius: 8px !important; overflow: hidden; margin-bottom: 5px; }
+
+    /* ── Loading overlay ────────────────────────────────────────── */
+    .loading-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.3); z-index: 9999;
+      align-items: center; justify-content: center;
+    }
+    .loading-overlay.show { display: flex; }
+    .loading-box {
+      background: #fff; padding: 1.1rem 2rem; border-radius: 12px;
+      display: flex; align-items: center; gap: .75rem;
+    }
+
+    /* ── Empty / live hint ──────────────────────────────────────── */
+    .empty-state { text-align: center; padding: 3rem 1rem; color: #94a3b8; }
+    .empty-state i { font-size: 2.5rem; margin-bottom: .75rem; display: block; }
+    .live-badge {
+      font-size: .7rem; background: #dcfce7; color: #166534;
+      border-radius: 999px; padding: 1px 8px; font-weight: 600; vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════ HEADER ════════════════════ -->
+<div class="app-header mb-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 px-3" style="max-width:1200px;margin:0 auto;width:100%">
+
+    <div>
+      <h1><i class="fas fa-hospital-user me-2"></i>ระบบค้นหารหัส ICD-10</h1>
+      <div class="sub">ICD-10-CM (Diagnosis) &nbsp;|&nbsp; ICD-10-PCS (Procedure)</div>
+    </div>
+
+    <div class="d-flex flex-column align-items-end gap-1">
+      <!-- Theme switcher -->
+      <div class="d-flex gap-1 align-items-center mb-1">
+        <span style="color:rgba(255,255,255,.55);font-size:.7rem;margin-right:4px">Theme</span>
+        <span class="theme-dot active" id="dot-blue"   title="Blue"   style="background:#3b82f6" onclick="setTheme('blue')"></span>
+        <span class="theme-dot"        id="dot-green"  title="Green"  style="background:#22c55e" onclick="setTheme('green')"></span>
+        <span class="theme-dot"        id="dot-purple" title="Purple" style="background:#a855f7" onclick="setTheme('purple')"></span>
+        <span class="theme-dot"        id="dot-teal"   title="Teal"   style="background:#14b8a6" onclick="setTheme('teal')"></span>
+        <span class="theme-dot"        id="dot-rose"   title="Rose"   style="background:#f43f5e" onclick="setTheme('rose')"></span>
+      </div>
+      <!-- NLM + credit -->
+      <span class="badge bg-white" style="color:var(--clr-primary);font-size:.75rem">NLM Clinical Tables API</span>
+      <span class="credit">By Dr. Varut MRLS13</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════ MAIN ════════════════════ -->
+<div class="container-fluid px-3 px-md-4 pb-5" style="max-width:1200px;margin:0 auto">
+
+  <!-- Tabs — order: Search | Hierarchy | Body System | Chapter -->
+  <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#searchTab" role="tab">
+      <i class="fas fa-search me-1"></i> ค้นหาโค้ด
+    </button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#hierarchyTab" role="tab">
+      <i class="fas fa-sitemap me-1"></i> ลำดับชั้นโค้ด
+    </button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#bodySystemTab" role="tab">
+      <i class="fas fa-procedures me-1"></i> ระบบร่างกาย (PCS)
+    </button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#categoryTab" role="tab">
+      <i class="fas fa-list-ul me-1"></i> หมวดหมู่ / Chapter
+    </button></li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ══════════ TAB 1: SEARCH ══════════ -->
+    <div class="tab-pane fade show active" id="searchTab" role="tabpanel">
+      <div class="card mb-3">
+        <div class="card-body">
+          <!-- Type toggle -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold small d-block">ประเภทโค้ด</label>
+            <div class="btn-group type-btn-group" role="group">
+              <button type="button" class="btn btn-outline-primary active" id="sBtnCM"
+                onclick="setSearchType('diagnosis')">
+                <i class="fas fa-stethoscope me-1"></i> ICD-10-CM &nbsp;<small class="opacity-75">วินิจฉัย</small>
+              </button>
+              <button type="button" class="btn btn-outline-primary" id="sBtnPCS"
+                onclick="setSearchType('procedure')">
+                <i class="fas fa-cut me-1"></i> ICD-10-PCS &nbsp;<small class="opacity-75">หัตถการ</small>
+              </button>
+            </div>
+          </div>
+          <!-- Search input -->
+          <div class="row g-2 align-items-end">
+            <div class="col">
+              <label class="form-label fw-semibold small">
+                คำค้นหา (โค้ด หรือ คำอธิบาย)
+                <span class="live-badge ms-1">Live</span>
+              </label>
+              <input type="text" class="form-control" id="searchInput"
+                placeholder="พิมพ์อย่างน้อย 2 ตัวอักษร เช่น  di, E11, hyp, append..."
+                oninput="debounceSearch()" />
+            </div>
+            <div class="col-auto">
+              <button class="btn btn-primary" onclick="searchCodes()">
+                <i class="fas fa-search me-1"></i> ค้นหา
+              </button>
+            </div>
+          </div>
+          <div class="mt-2">
+            <small class="text-muted">
+              ตัวอย่าง:
+              <code onclick="quickSearch('diab')" style="cursor:pointer">diab</code> &nbsp;|&nbsp;
+              <code onclick="quickSearch('E11')" style="cursor:pointer">E11</code> &nbsp;|&nbsp;
+              <code onclick="quickSearch('hypert')" style="cursor:pointer">hypert</code> &nbsp;|&nbsp;
+              <code onclick="quickSearch('J45')" style="cursor:pointer">J45</code> &nbsp;|&nbsp;
+              <code onclick="quickSearch('append')" style="cursor:pointer">append</code>
+            </small>
+          </div>
+        </div>
+      </div>
+      <div id="searchResults">
+        <div class="empty-state"><i class="fas fa-keyboard"></i>พิมพ์อย่างน้อย 2 ตัวอักษร ผลลัพธ์จะแสดงอัตโนมัติ</div>
+      </div>
+    </div>
+
+    <!-- ══════════ TAB 2: HIERARCHY ══════════ -->
+    <div class="tab-pane fade" id="hierarchyTab" role="tabpanel">
+      <div class="card mb-3">
+        <div class="card-body">
+          <!-- Type toggle -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold small d-block">ประเภทโค้ด</label>
+            <div class="btn-group type-btn-group" role="group">
+              <button type="button" class="btn btn-outline-primary active" id="hBtnCM"
+                onclick="setHierType('diagnosis')">
+                <i class="fas fa-stethoscope me-1"></i> ICD-10-CM &nbsp;<small class="opacity-75">วินิจฉัย</small>
+              </button>
+              <button type="button" class="btn btn-outline-primary" id="hBtnPCS"
+                onclick="setHierType('procedure')">
+                <i class="fas fa-cut me-1"></i> ICD-10-PCS &nbsp;<small class="opacity-75">หัตถการ</small>
+              </button>
+            </div>
+          </div>
+          <div class="row g-2 align-items-end">
+            <div class="col">
+              <label class="form-label fw-semibold small">Code Prefix — ใส่ 1–5 ตัวอักษร</label>
+              <input type="text" class="form-control" id="hierInput"
+                placeholder="เช่น  E11, J06, K2, M54, 0BT..." />
+            </div>
+            <div class="col-auto">
+              <button class="btn btn-primary" onclick="getHierarchy()">
+                <i class="fas fa-sitemap me-1"></i> ดูลำดับชั้น
+              </button>
+            </div>
+          </div>
+          <div class="mt-2">
+            <small class="text-muted">
+              ตัวอย่าง:
+              <code onclick="quickHier('E11')" style="cursor:pointer">E11</code> (Type 2 Diabetes) &nbsp;|&nbsp;
+              <code onclick="quickHier('J06')" style="cursor:pointer">J06</code> (URI) &nbsp;|&nbsp;
+              <code onclick="quickHier('M54')" style="cursor:pointer">M54</code> (Dorsalgia)
+            </small>
+          </div>
+        </div>
+      </div>
+      <div id="hierarchyResults">
+        <div class="empty-state"><i class="fas fa-sitemap"></i>ใส่ Code Prefix แล้วกด "ดูลำดับชั้น"</div>
+      </div>
+    </div>
+
+    <!-- ══════════ TAB 3: BODY SYSTEM ══════════ -->
+    <div class="tab-pane fade" id="bodySystemTab" role="tabpanel">
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+              <label class="form-label fw-semibold small">Section (ICD-10-PCS)</label>
+              <select class="form-select" id="pcsSection" onchange="updateBodySystems()">
+                <option value="0">0 — Medical and Surgical</option>
+                <option value="1">1 — Obstetrics</option>
+                <option value="2">2 — Placement</option>
+                <option value="3">3 — Administration</option>
+                <option value="4">4 — Measurement and Monitoring</option>
+                <option value="5">5 — Extracorporeal/Systemic Assistance</option>
+                <option value="6">6 — Extracorporeal Therapies</option>
+                <option value="7">7 — Osteopathic</option>
+                <option value="8">8 — Other Procedures</option>
+                <option value="9">9 — Chiropractic</option>
+                <option value="B">B — Imaging</option>
+                <option value="C">C — Nuclear Medicine</option>
+                <option value="D">D — Radiation Therapy</option>
+                <option value="F">F — Physical Rehabilitation &amp; Diagnostic Audiology</option>
+                <option value="G">G — Mental Health</option>
+                <option value="H">H — Substance Abuse Treatment</option>
+                <option value="X">X — New Technology</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small">Body System</label>
+              <select class="form-select" id="bodySystem"></select>
+            </div>
+            <div class="col-md-3">
+              <button class="btn btn-primary w-100" onclick="searchByBodySystem()">
+                <i class="fas fa-search me-1"></i> ค้นหา
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="bodySystemResults">
+        <div class="empty-state"><i class="fas fa-procedures"></i>เลือก Section และ Body System แล้วกด "ค้นหา"</div>
+      </div>
+    </div>
+
+    <!-- ══════════ TAB 4: CATEGORY / CHAPTER ══════════ -->
+    <div class="tab-pane fade" id="categoryTab" role="tabpanel">
+      <div class="row g-4">
+        <div class="col-md-4 col-lg-3">
+          <h6 class="fw-bold mb-3" style="color:var(--clr-primary)">
+            <i class="fas fa-list-ul me-1"></i> ICD-10-CM Chapters
+          </h6>
+          <div id="chapterList"></div>
+        </div>
+        <div class="col-md-8 col-lg-9">
+          <div id="categoryResults">
+            <div class="empty-state"><i class="fas fa-hand-point-left"></i>เลือก Chapter ทางซ้าย</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tab-content -->
+</div>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-box">
+    <div class="spinner-border" role="status" style="color:var(--clr-primary)"></div>
+    <span class="fw-semibold">กำลังค้นหา...</span>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const _0x532b20=_0x3eac;(function(_0x36355a,_0x38846e){const _0x2aaf0b=_0x3eac,_0x41cf32=_0x36355a();while(!![]){try{const _0x1edd13=-parseInt(_0x2aaf0b(0x25c))/0x1*(parseInt(_0x2aaf0b(0x2b6))/0x2)+-parseInt(_0x2aaf0b(0x27c))/0x3*(parseInt(_0x2aaf0b(0x1b5))/0x4)+parseInt(_0x2aaf0b(0x222))/0x5*(-parseInt(_0x2aaf0b(0x2c5))/0x6)+parseInt(_0x2aaf0b(0x1b3))/0x7+parseInt(_0x2aaf0b(0x2d0))/0x8+parseInt(_0x2aaf0b(0x1e6))/0x9*(parseInt(_0x2aaf0b(0x32b))/0xa)+parseInt(_0x2aaf0b(0x277))/0xb;if(_0x1edd13===_0x38846e)break;else _0x41cf32['push'](_0x41cf32['shift']());}catch(_0x6c3986){_0x41cf32['push'](_0x41cf32['shift']());}}}(_0x3def,0xe649e));const THEMES={'blue':{'dark':'#1e3a8a','primary':_0x532b20(0x1f6),'accent':_0x532b20(0x208),'light':_0x532b20(0x313),'code':'#1e3a8a'},'green':{'dark':_0x532b20(0x246),'primary':'#16a34a','accent':_0x532b20(0x25d),'light':_0x532b20(0x2bc),'code':_0x532b20(0x326)},'purple':{'dark':'#581c87','primary':'#9333ea','accent':'#a855f7','light':_0x532b20(0x317),'code':_0x532b20(0x180)},'teal':{'dark':_0x532b20(0x23e),'primary':'#0d9488','accent':_0x532b20(0x300),'light':_0x532b20(0x165),'code':_0x532b20(0x211)},'rose':{'dark':'#881337','primary':'#e11d48','accent':_0x532b20(0x185),'light':'#fff1f2','code':'#be123c'}};function setTheme(_0x4aaa60){const _0x45cb6f=_0x532b20,_0x2bedc7={'kkGOQ':'--clr-da'+'rk','nTAjE':_0x45cb6f(0x1ec)+_0x45cb6f(0x2e6),'ldAWi':'.app-hea'+_0x45cb6f(0x1ea),'ZEjvZ':_0x45cb6f(0x29d)+'g-white'},_0x3bd154=THEMES[_0x4aaa60],_0x3a1171=document[_0x45cb6f(0x1c8)+_0x45cb6f(0x29b)][_0x45cb6f(0x303)];_0x3a1171[_0x45cb6f(0x26f)+'rty'](_0x2bedc7[_0x45cb6f(0x1a6)],_0x3bd154[_0x45cb6f(0x166)]),_0x3a1171[_0x45cb6f(0x26f)+_0x45cb6f(0x1bf)](_0x45cb6f(0x32d)+'imary',_0x3bd154[_0x45cb6f(0x272)]),_0x3a1171['setPrope'+_0x45cb6f(0x1bf)](_0x45cb6f(0x1b8)+_0x45cb6f(0x2c7),_0x3bd154[_0x45cb6f(0x2b8)]),_0x3a1171[_0x45cb6f(0x26f)+_0x45cb6f(0x1bf)](_0x2bedc7['nTAjE'],_0x3bd154[_0x45cb6f(0x18a)]),_0x3a1171['setPrope'+_0x45cb6f(0x1bf)]('--clr-co'+_0x45cb6f(0x30e),_0x3bd154[_0x45cb6f(0x30a)]),document[_0x45cb6f(0x2f8)+_0x45cb6f(0x293)](_0x2bedc7[_0x45cb6f(0x1e2)])[_0x45cb6f(0x303)][_0x45cb6f(0x1f2)+'nd']='linear-g'+_0x45cb6f(0x2e3)+'135deg,\x20'+_0x3bd154[_0x45cb6f(0x166)]+'\x200%,\x20'+_0x3bd154[_0x45cb6f(0x272)]+_0x45cb6f(0x209),document[_0x45cb6f(0x2f8)+_0x45cb6f(0x293)](_0x2bedc7['ZEjvZ'])[_0x45cb6f(0x303)]['color']=_0x3bd154['primary'],document[_0x45cb6f(0x2f8)+_0x45cb6f(0x2a4)](_0x45cb6f(0x30f)+'ot')['forEach'](_0x468c7c=>_0x468c7c['classLis'+'t']['remove']('active')),document[_0x45cb6f(0x1d2)+_0x45cb6f(0x2f3)](_0x45cb6f(0x287)+_0x4aaa60)['classLis'+'t']['add']('active');}const NLM=_0x532b20(0x1df)+_0x532b20(0x229)+_0x532b20(0x224)+_0x532b20(0x2a3)+_0x532b20(0x26d);function _0x3def(){const _0x51f5cb=['iokaLcbLBMrWBW','C3m9iMnVzgu','uMvZDwX0CW','BguGuMvWCM8','re9nq29UDgu','ig9MigjSB28','rJaX4OctrJK5','sw5QDxj5lca','ys1RzxLIB2e','AsbJBgfZCZ0','zwn0AxzLifq','B2r5ihaTmIi','jM5IC3a7WRCM','BcbWDxjWB3m','B2XPyYbKAxm','ignHDxnLCYa','vxbWzxiGrxG','lxbYAw1HCNK','AwfUz2XLig0','iZDLmJjJzq','yxnZpsjHy2m','CM9HDa','ie5VC2uSie0','ztOUodvYzw0','i2y0m2y1zq','ywrUzxHH','Bg9WBwvUDge','C3m9iNrLEhq','At7GUylGUitGUkpGUiFGUkRGUkm','BgLNAhq','zwXZ','BMrPBMDZlca','DIbJBgfZCZ0','icaGidXKAxy','4lMj4lIu4lIx4lI14lMi4lIc4lI24lMj','ifrPC3n1zsa','AxnZDwu','C2HVDW','staW4OctstK5','zgL2ignSyxm','zs0YiJ4','mJ4kicaGica','DgvYka','AvrZAM0','C3rHDhvZ','y2mIpG','icaGpgrPDIa','rMfJDg9YCYa','CYbHBMqGy28','AKvuuwq','icaGicbKyxq','BMfUy3K','tcdIGjqGq29UBG','vJaW4OctwtK5','iIbJBgfZCZ0','yxrby2mIpG','yxj5ig1Zlti','A2Tht1e','C21HBgWIpUc5Ha','l2K+4lIE4lIAia','icaGigrHDge','rgLZzwfZzxm','D2fYBMLUzYi','CMvZCgLYyxq','DcbHBMqGr3i','Es1ZDgf0zsi','Bg9HzenOyxa','lwnLBNrLCIa','Aej0BKnn','qNrnvLu','nZaYndmZovrbsfrRBq','lxbPBgWIpJW','mZy2mtCXmM5zswz6Ba','yxnJAwe','sZaW4OctsZK1','ls1JBhiTywm','A2v5zg93BG','iMnOyxb0zxi','4lIL4lMm4lIC4lMi4lIY4lIzifC','Dg9UpGOGica','zM9JDxm','BwuTmsi+pc8','CNr5','lwv4y2XHBwe','vIdIGjqGtwfSzq','Dg9IAwXPyxi','BKH2zw4','icaGica8zgK','yNv0Dg9UiGO','C3m9iMfSzxi','CMLTyxj5ksi','zg9JDw1LBNq','Dgf0lxbPBgW','DxPWvMC','CMqIpJWVAt4','jM1HEeXPC3q','DcbHBgvYDc0','uZaW4OctvdG4','zY1ZzwnVBMq','ChvZAa','Bgu9iMnVBgW','z2v0rwXLBwu','pUc5Hoc4OEc5Ioc4NUc4MUc4GUc5Iq','C3bHBIbJBge','Aw5Uzxjive0','BMnSAwnRpsi','yxnZpsjJB2q','u3LZDgvT','udaW4OctudK2','zd0IAgLLCKe','z0v4sgy','qwnJ','tKvd','CIbZCgvJAwe','Ahr0Chm6lY8','ica8l2j1Dhq','B24TyM9KEsa','Bgrbv2K','y29YzgLVBI0','iezHy2LHBca','tg93zxiGrxG','ndmZog9WyMn2Aq','vcdIGjqGvxjPBG','psjMDY1IB2W','psjVCgfJAxq','zgvY','BMjZCdSG4lMb4lIQ','ls1JBhiTBgK','AM9PBG','wKPtDKC','mIiGDhLWzt0','C2vHCMnOuMu','C3m9iNjHBMC','yMfJA2DYB3u','CIbwzwLUCW','ksi+pc9KAxy','rw5KB2nYAw4','iZi1nJnLyG','DgGGAgvHBhq','B24Gy29SBge','sdaW4Octsdu5','CMfUAwfSie4','icaGicaGphm','qZaW4Octrdq5','C3rHCNrZv2K','EhqTBxv0zwq','BIbJBgfZCZ0','ioc4O+c4SUc4OUc4GEc4SUc4OZW','CZ0IzgvZyYi','Aw5HCNKGC3K','q1fVCwm','zgL0Eq','t0jTs0O','ywuGyw5KieW','u3LZDgvTCW','iZnIodjMnG','ideWmcuP','4lIJpc9KAxy+','C2TPBIbHBMq','y2XHC3m9iNm','4lIT4lIH4lI54lIL4lMd4lIz4lIR4lIH','zxvYB2rLDMu','AwnKmtbWy3m','BNrmB2fKzwq','iZbMnZy2zq','Cc0YiJ4kica','zxj2B3vZifm','iMnVBg9YoNy','BgvUz3rO','qYdIGjqGtw91Da','Aw50oIa','CM1HDgLVBNm','ihn1yMn1Dge','B3j5ihn5C3q','nsdIGjqGvMvPBG','y3rPDMuGu3K','yxnZpsjKzxm','zgLVBI1PDgu','zgfUz2vYiJ4','ueXosKq','ioc4Q+c4OEc4P+c4Loc4OUc5Ioc4Rq','mtbws2nwuM8','zgf0ywjHC2u','DgfIBgvZlM4','BgvZ','u3LTChrVBxm','ywrK','B29KlwzVCM0','y2XPBMLJywW','BwfW','y2XLig1Llte','kc0Ty2XYlxa','mIdIGjqGsgvHCG','ANnVBG','DxmGyw5Kiha','BIiGAwq9iMm','zsWGBNv0CMK','yM9KEvn5C3q','zw1szxn1Bhq','uIdIGjqGvxbWzq','BxvZy3vSB3m','4lIH4lMi4lIH4lI1ihn1yG','AxjHDg9YEsa','zxj2zxm','4lIN4lIu4lIz4lI14lMjpc9K','y29UzgL0Aw8','yw5KigfIBM8','iMfJy29YzgK','CZ0IywnJB3i','iZeZngu0yq','pgKGy2XHC3m','l2rPDJ4','BwfZDg9Pzca','z2XLpsjJB2W','zgvZyW','cIaGicaGidW','B24Gy2XHC3m','iZe0ntmYza','CMvWBgfJzq','psjMyxmGzMe','lcbtDwjJDxq','CZ0IzMfZigy','Dg9mB2nHBgu','yI0ZiJ4','mcdIGjqGq2vUDa','Aw5MBhvLBMm','pJXPignSyxm','zxjWzxjPDw0','ChjVy2vZCW','lwjZlxrVz2C','pgjYpJXZBwe','r2vUzxjHBa','AwfSiejVBMu','nYdIGjqGthLTCa','y3jLyxm','CMfUz2u','DhjLBwL0Awu','4lIk4lIX4lMj4lIz4lIc4lIT4lIhia','y3jPBMuGu3K','mta0mdi1mKz0A1zlrW','iZiYyZu1zq','AgLLCKLUChu','icaGpc9KAxy','ys1LEgnSyw0','icaGidXZCge','l2rPDJ4kica','uJaW4OctuJK5','yxj5ifn5C3q','igfUzcbqyw4','zgL2pG','koc5Hoc4OEc5Ioc4OEc4TEc4GUc5Iq','iIdIGjqG','t0nVB28','icaGpgGYigm','osdIGjqGrwfYla','C3vSDhm','B3yVyxbP','CMDLDd0Ii2G','C2v0uhjVCgu','ifjLChjVzhu','iMnKzxnJiJ4','ChjPBwfYEq','C3m9iMfJy28','pJWVzgL2pG','ica8l2rPDJ4','C2zgs1O','nJiWnJa1n2z2y3D4qW','Dg9Nz2XL','EsbtExn0zw0','zwXLDg9UicG','zgLHz25VC2K','m1jLs2Hmua','pc9VChrPB24','rtaW4OctrtG5','icaGicaGidW','CMrPB24IigK','icaGidXWigm','ucdIGjqGvxbWzq','CgvYAw9K','ys1ICY10B2C','zwfZDa','ig9Migv4Dgu','zg90lq','ChKTnsi+pgq','CgTgvKi','C3vICW','y3rPDMuGDgK','Cg9PC29UAw4','zd0IAefJyW','Bgu6lY88l3m','iJ4kicaGica','CZ0ICMvZDwW','4lI04lIu4lIE4lIL4lIY4lIupc8','cIaGicaGica','zwn0B3i','zwLwDgG','Chv0','pc9KAxy+','BgWGy2XHC3m','pc9WpGOGica','BMqGy2HYB20','rxH0zxjUywW','rwXLBwvUDa','q2vYDgfPBIa','lMjHzgDLlMi','AwDHBwvUDhm','ChnLignVBgW','DhjPBq','DgeTyNmTDge','yxnZpsj0zxG','Bg0UBMLOlMC','zwn0B3jbBgW','utaW4OctutK5','zs1IywrNzsi','Dc1TDxrLzca','C3LZDgvT','4lIu4lIhia','tfHgquS','DMfSDwu','A2v5','4lIz4lIv4lMj4lIz4lIu4lMj4lIN4lII','sfruuca','CIbkB2LUDhm','zxLLigfUzca','y2XHC3nmAxm','rZaW4OctrZK5','zYbHBMqGy2u','CgfUignSyxm','Awq9iMnby2m','mKnuv3zpsG','zhvJDgL2zsa','ywnJzw50','yw5KiezHC2m','zsi+','yxjNzxq9iIm','i2yWzMrMna','Axy+','4lIX4lIQ4lIx4lI14lMi4lIv4lIJ4lIh','ywrKrxzLBNq','BxmTmIi+','icaGicaGica','q3b0Ehq','pc9KAxy+cIa','C3rLBq','mJi2nZqZnMzvsfrIzG','lwjHzgDLig0','y2vUDa','BNrHy3qGD2K','Aw9IwxO','tgLZDgvUzxi','B21Py2fSifi','4lMj4lIY4lIh4lIL4lIZ4lIu4lIX4lIA','tJaW4OcttJK5','B3v0AcWGvgG','A2vSzxrHBca','mta4mdq3ntjVvu10zeq','ncdIGjqGtg93zq','ChnLzcbWEs0','AwnKmtbJBq','CgnZu2vJDgK','Es03nsi+4lIv4lIJ','icaGpgj1Dhq','B24Ty29SBge','zcb0AguGChu','4lIR4lIYpc9KAxy+','DgGGC3rHDhu','iMzSzxG6mtS','zcbizw1PyYa','zM9YrwfJAa','yxiOls1JBhi','AgvYignVBNm','C2vHCMnOsw4','zMLSDgvY','Exn0zw0','CMfKAwvUDcG','rduW4OctrdG5','v0rZtKS','z2H0','icaGidWVzgK','u3rYAw5N','iJ48l2K+4lMa4lIb','BgfZCZ0Iywm','s3ngqLy','zwDPB25Z','4lIN4lIi4lIQ4lIT4lIA4lIb4lIY4lIJ','BgfZCZ0IDgu','s0zUu2K','tgj0rg0','zw0Gyw5Kiem','CIbbCNrLCMK','BNrcEuLK','pgrPDIbJBge','4lI04lIu4lIc4lMj4lIT4lIC4lI04lIu','ywn0AxzL','CM9PBNrLC3q','CxvLCNLtzwW','Aw5HBcbtExm','jMX0oW','4lMa4lIb4lI04lIu4lIc4lMj4lIT4lIC','iIbZDhLSzt0','jNf1B3q7','uNvPEhq','DMfSDwu9iG','iZe0yJHHnG','Agf0AwmGyw4','zxf1zw5Jzxm','C3r5Bgu','pGOGicaGica','iIb0ExbLpsi','BIbZDhLSzt0','BMqGBwv0ywi','yxbZzsiGzge','BcbKAxnVCMq','y29Kzq','EsbZExn0zw0','zgLNzxn0Axy','BcbHBMqGrMe','zguTyMC','lNrOzw1Llwq','ucdIGjqGtM9Ulq','BMvYDM91CYa','BsbIB3jKzxi','i2vMzJzMzG','B3vZifn5C3q','yNjcAhe','Cunbt3e','i2zHzJvMzG','CgHLCMfSie4','ig9MihrOzsa','pg9WDgLVBIa','A3vSBcbHBMq','AgrY','zw50CMLLCW','rYdIGjqGrw5KBW','CgfUpG','Aej0BLbduW','ttaW4OctttK5','ChjVy2vKDxi','icaGica8l2G','igfUzcbcCMu','pUc5Hoc4OEc5Ioc4NUc4MUc4O+c4QW','iZe1odaZza','DgLVBMfSige','tIdIGjqGsgvHza','usdIGjqGtg93zq','yYi+','mtuYodbXuvDbAwK','rcdIGjqGr2fZDa','ls1JBhiTChi','igfUzcbgywm','pc9ZCgfUpG','icaGicaG','AgLLCMfYy2G','wJaW4OctwJK5','DgLLCW','i2yWzMrMyq','zgfYAW','C3vIC3rYAw4','zcbTyI0WiIa','tZaW4OcttZLb','pc9ZCgfUpGO','Bg9HzgLUz08','phnWyw4Gy2W'];_0x3def=function(){return _0x51f5cb;};return _0x3def();}async function nlmSearch(_0x59b694,_0x4f48c2,_0x51e59b=0x64){const _0x47cf05=_0x532b20,_0x1b9278={'jETQd':_0x47cf05(0x2d3),'vCMvF':function(_0x58d9f5,_0x2460d7){return _0x58d9f5(_0x2460d7);}},_0x186522=_0x59b694===_0x47cf05(0x27b)+'s'?_0x1b9278[_0x47cf05(0x19e)]:_0x47cf05(0x20f),_0x3c7804=NLM+'/'+_0x186522+('/v3/sear'+'ch?terms'+'=')+_0x1b9278['vCMvF'](encodeURIComponent,_0x4f48c2)+(_0x47cf05(0x1cc)+'=')+_0x51e59b,_0x410afd=await fetch(_0x3c7804);if(!_0x410afd['ok'])throw new Error(_0x47cf05(0x2ae)+_0x410afd[_0x47cf05(0x199)]+(_0x47cf05(0x16d)+_0x47cf05(0x217))+_0x186522);return _0x410afd[_0x47cf05(0x22e)]();}const CHAPTERS=[{'code':'A','range':'A00–B99','desc':_0x532b20(0x29c)+'infectio'+_0x532b20(0x22f)+'arasitic'+'\x20disease'+'s'},{'code':'C','range':_0x532b20(0x1fc),'desc':'Neoplasm'+'s'},{'code':'D5','range':_0x532b20(0x2e4),'desc':_0x532b20(0x1aa)+_0x532b20(0x172)+'d\x20and\x20bl'+_0x532b20(0x228)+'ing\x20orga'+'ns'},{'code':'E','range':_0x532b20(0x27e),'desc':_0x532b20(0x1f5)+_0x532b20(0x231)+_0x532b20(0x327)+_0x532b20(0x307)+_0x532b20(0x17b)+'eases'},{'code':'F','range':_0x532b20(0x173),'desc':'Mental,\x20'+'Behavior'+'al\x20and\x20N'+_0x532b20(0x20e)+_0x532b20(0x187)+_0x532b20(0x309)+'ers'},{'code':'G','range':_0x532b20(0x2b2),'desc':_0x532b20(0x1aa)+'\x20of\x20the\x20'+_0x532b20(0x311)+_0x532b20(0x2a8)},{'code':'H0','range':_0x532b20(0x1f9),'desc':_0x532b20(0x1aa)+'\x20of\x20the\x20'+_0x532b20(0x2b0)+_0x532b20(0x186)},{'code':'H6','range':'H60–H95','desc':_0x532b20(0x1aa)+_0x532b20(0x319)+'ear\x20and\x20'+_0x532b20(0x241)+_0x532b20(0x251)},{'code':'I','range':_0x532b20(0x193),'desc':'Diseases'+_0x532b20(0x319)+'circulat'+_0x532b20(0x21a)+'em'},{'code':'J','range':'J00–J99','desc':'Diseases'+_0x532b20(0x319)+_0x532b20(0x1ac)+'ory\x20syst'+'em'},{'code':'K','range':_0x532b20(0x1b7),'desc':_0x532b20(0x1aa)+_0x532b20(0x319)+_0x532b20(0x30c)+'e\x20system'},{'code':'L','range':'L00–L99','desc':_0x532b20(0x1aa)+_0x532b20(0x319)+_0x532b20(0x20b)+_0x532b20(0x219)+'neous\x20ti'+'ssue'},{'code':'M','range':_0x532b20(0x321),'desc':'Diseases'+_0x532b20(0x319)+_0x532b20(0x235)+_0x532b20(0x2cf)+'system\x20a'+'nd\x20conne'+_0x532b20(0x28b)+'ssue'},{'code':'N','range':_0x532b20(0x2cd),'desc':'Diseases'+'\x20of\x20the\x20'+'genitour'+_0x532b20(0x202)+_0x532b20(0x2c4)},{'code':'O','range':_0x532b20(0x169),'desc':'Pregnanc'+'y,\x20child'+'birth\x20an'+_0x532b20(0x2d8)+_0x532b20(0x250)},{'code':'P','range':_0x532b20(0x1d9),'desc':'Certain\x20'+_0x532b20(0x23a)+'ns\x20origi'+'nating\x20i'+'n\x20the\x20pe'+'rinatal\x20'+_0x532b20(0x283)},{'code':'Q','range':_0x532b20(0x2a5),'desc':'Congenit'+'al\x20malfo'+_0x532b20(0x218)+',\x20deform'+'ations\x20a'+_0x532b20(0x299)+'osomal\x20a'+'bnormali'+_0x532b20(0x164)},{'code':'R','range':_0x532b20(0x263),'desc':_0x532b20(0x226)+',\x20signs\x20'+_0x532b20(0x23b)+'rmal\x20cli'+'nical\x20fi'+_0x532b20(0x18c)+_0x532b20(0x1dd)},{'code':'S','range':_0x532b20(0x1ce),'desc':_0x532b20(0x174)+_0x532b20(0x28c)+_0x532b20(0x2b3)+'rtain\x20ot'+_0x532b20(0x2df)+_0x532b20(0x302)+_0x532b20(0x286)+'rnal\x20cau'+'ses'},{'code':'V','range':_0x532b20(0x1a2),'desc':_0x532b20(0x29a)+_0x532b20(0x17c)+'of\x20morbi'+_0x532b20(0x204)},{'code':'Z','range':_0x532b20(0x163),'desc':_0x532b20(0x19c)+_0x532b20(0x24e)+'ing\x20heal'+_0x532b20(0x2da)+_0x532b20(0x19d)+_0x532b20(0x2c8)+_0x532b20(0x1f7)+'h\x20servic'+'es'},{'code':'U','range':'U00–U85','desc':'Codes\x20fo'+_0x532b20(0x1de)+_0x532b20(0x17a)+'es'}],BODY_SYSTEMS={'0':[{'v':'0','l':_0x532b20(0x24d)+'ral\x20Nerv'+_0x532b20(0x314)+'em\x20and\x20C'+'ranial\x20N'+'erves'},{'v':'1','l':'1\x20—\x20Peri'+_0x532b20(0x318)+_0x532b20(0x213)+_0x532b20(0x2e2)},{'v':'2','l':_0x532b20(0x22d)+_0x532b20(0x1ad)+'eat\x20Vess'+_0x532b20(0x18b)},{'v':'3','l':'3\x20—\x20Uppe'+_0x532b20(0x2f2)+'es'},{'v':'4','l':_0x532b20(0x2d1)+_0x532b20(0x2f2)+'es'},{'v':'5','l':'5\x20—\x20Uppe'+_0x532b20(0x1f3)},{'v':'6','l':'6\x20—\x20Lowe'+_0x532b20(0x1f3)},{'v':'7','l':_0x532b20(0x256)+_0x532b20(0x301)+_0x532b20(0x2dc)+_0x532b20(0x207)},{'v':'8','l':'8\x20—\x20Eye'},{'v':'9','l':_0x532b20(0x26b)+'\x20Nose,\x20S'+'inus'},{'v':'B','l':'B\x20—\x20Resp'+_0x532b20(0x237)+_0x532b20(0x1d8)},{'v':'C','l':_0x532b20(0x216)+'h\x20and\x20Th'+_0x532b20(0x182)},{'v':'D','l':_0x532b20(0x32c)+_0x532b20(0x2f7)+_0x532b20(0x2f9)+'tem'},{'v':'F','l':'F\x20—\x20Hepa'+_0x532b20(0x1c2)+_0x532b20(0x279)+_0x532b20(0x265)+_0x532b20(0x257)},{'v':'G','l':_0x532b20(0x31e)+'crine\x20Sy'+'stem'},{'v':'H','l':'H\x20—\x20Skin'+_0x532b20(0x324)+'ast'},{'v':'J','l':'J\x20—\x20Subc'+'utaneous'+_0x532b20(0x190)+_0x532b20(0x2b9)+'ia'},{'v':'K','l':'K\x20—\x20Musc'+_0x532b20(0x225)},{'v':'L','l':'L\x20—\x20Tend'+'ons'},{'v':'M','l':'M\x20—\x20Burs'+_0x532b20(0x206)+_0x532b20(0x29e)},{'v':'N','l':_0x532b20(0x328)+_0x532b20(0x32e)+_0x532b20(0x255)+'s'},{'v':'P','l':_0x532b20(0x282)+'r\x20Bones'},{'v':'Q','l':_0x532b20(0x329)+'r\x20Bones'},{'v':'R','l':_0x532b20(0x234)+_0x532b20(0x2af)},{'v':'S','l':'S\x20—\x20Lowe'+'r\x20Joints'},{'v':'T','l':_0x532b20(0x1e7)+_0x532b20(0x264)+'em'},{'v':'U','l':'U\x20—\x20Fema'+_0x532b20(0x170)+_0x532b20(0x2b7)+_0x532b20(0x1d8)},{'v':'V','l':_0x532b20(0x1c1)+'\x20Reprodu'+_0x532b20(0x21c)+_0x532b20(0x2c4)},{'v':'W','l':'W\x20—\x20Anat'+'omical\x20R'+'egions,\x20'+_0x532b20(0x254)},{'v':'X','l':'X\x20—\x20Anat'+'omical\x20R'+'egions,\x20'+_0x532b20(0x17d)+_0x532b20(0x259)+'s'},{'v':'Y','l':'Y\x20—\x20Anat'+_0x532b20(0x2cb)+'egions,\x20'+_0x532b20(0x1e5)+'tremitie'+'s'}],'1':[{'v':'0','l':'0\x20—\x20Preg'+_0x532b20(0x1a0)}],'B':[{'v':'0','l':_0x532b20(0x24d)+'ral\x20Nerv'+_0x532b20(0x314)+_0x532b20(0x2f1)+_0x532b20(0x1fa)+_0x532b20(0x238)},{'v':'2','l':_0x532b20(0x22d)+'t'},{'v':'3','l':'3\x20—\x20Uppe'+'r\x20Arteri'+'es'},{'v':'4','l':_0x532b20(0x2d1)+_0x532b20(0x2f2)+'es'},{'v':'5','l':_0x532b20(0x21b)+'s'},{'v':'7','l':_0x532b20(0x256)+'hatic,\x20H'+'emic,\x20Br'+_0x532b20(0x285)},{'v':'8','l':'8\x20—\x20Eye'},{'v':'9','l':'9\x20—\x20Ear,'+_0x532b20(0x183)+_0x532b20(0x2ce)+'roat'},{'v':'B','l':'B\x20—\x20Resp'+_0x532b20(0x237)+'System'},{'v':'D','l':'D\x20—\x20Gast'+_0x532b20(0x2f7)+_0x532b20(0x2f9)+'tem'},{'v':'F','l':'F\x20—\x20Hepa'+_0x532b20(0x1c2)+_0x532b20(0x279)+'\x20and\x20Pan'+'creas'},{'v':'G','l':_0x532b20(0x31e)+_0x532b20(0x25b)+'stem'},{'v':'H','l':'H\x20—\x20Skin'+_0x532b20(0x249)+'aneous\x20T'+'issue,\x20F'+_0x532b20(0x1b6)},{'v':'L','l':_0x532b20(0x1a1)+_0x532b20(0x177)+_0x532b20(0x191)},{'v':'N','l':'N\x20—\x20Skul'+_0x532b20(0x30d)+'cial\x20Bon'+'es'},{'v':'P','l':_0x532b20(0x310)+'Axial\x20Sk'+_0x532b20(0x27a)+'Except\x20S'+_0x532b20(0x31b)+_0x532b20(0x1e4)+'Bones)'},{'v':'T','l':_0x532b20(0x1e7)+'ary\x20Syst'+'em'},{'v':'U','l':'U\x20—\x20Fema'+'le\x20Repro'+'ductive\x20'+_0x532b20(0x1d8)},{'v':'V','l':'V\x20—\x20Male'+_0x532b20(0x270)+_0x532b20(0x21c)+_0x532b20(0x2c4)},{'v':'W','l':'W\x20—\x20Anat'+_0x532b20(0x2cb)+_0x532b20(0x2ec)}]};function loading(_0x9c212d){const _0x4c07ea=_0x532b20,_0x5913e7={'cygID':'show'};document[_0x4c07ea(0x1d2)+_0x4c07ea(0x2f3)](_0x4c07ea(0x16b)+'verlay')['classLis'+'t']['toggle'](_0x5913e7['cygID'],_0x9c212d);}function escHtml(_0x3e34f0){const _0x1fd533=_0x532b20,_0x3f97d5={'qwgoy':function(_0x2aa7cd,_0x5f34c8){return _0x2aa7cd(_0x5f34c8);},'brBhq':'&gt;','CFuUJ':_0x1fd533(0x2fd)};return _0x3f97d5['qwgoy'](String,_0x3e34f0)['replace'](/&/g,'&amp;')['replace'](/</g,_0x1fd533(0x2fa))['replace'](/>/g,_0x3f97d5[_0x1fd533(0x315)])[_0x1fd533(0x247)](/"/g,_0x3f97d5['CFuUJ']);}function renderList(_0x277de3,_0x47e8c5,_0x4dd91a){const _0x1233cf=_0x532b20,_0x1161e9={'zuKfF':_0x1233cf(0x2f4)+_0x1233cf(0x1c6)+_0x1233cf(0x1cd)+_0x1233cf(0x1ab)+'><i\x20clas'+_0x1233cf(0x24a)+_0x1233cf(0x260)+'ation-tr'+_0x1233cf(0x17f)+'e-1\x22></i'+_0x1233cf(0x325)+_0x1233cf(0x2be)+'กับคำค้น'+_0x1233cf(0x2d9)},_0x2eb214=document[_0x1233cf(0x1d2)+'ntById'](_0x47e8c5);if(!_0x277de3||_0x277de3['length']===0x0){_0x2eb214['innerHTM'+'L']=_0x1161e9['zuKfF'];return;}let _0xd40dbb=_0x1233cf(0x2f4)+'ss=\x22stat'+_0x1233cf(0x1b4)+_0x1233cf(0x176)+'\x22fas\x20fa-'+_0x1233cf(0x223)+'\x20me-1\x22><'+_0x1233cf(0x1a8)+Number(_0x4dd91a)[_0x1233cf(0x24b)+_0x1233cf(0x2e8)]()+('\x20รายการ\x20'+_0x1233cf(0x179)+_0x1233cf(0x1eb)+_0x1233cf(0x2a9))+_0x277de3[_0x1233cf(0x215)]+(_0x1233cf(0x200)+_0x1233cf(0x240));_0xd40dbb+=_0x277de3['map'](([_0x585fb8,_0x3b58d])=>_0x1233cf(0x2f4)+'ss=\x22resu'+'lt-row\x22>'+'\x0a\x20\x20\x20\x20\x20\x20<'+_0x1233cf(0x1d4)+_0x1233cf(0x16e)+'-badge\x22>'+escHtml(_0x585fb8)+(_0x1233cf(0x16a)+_0x1233cf(0x1fb)+_0x1233cf(0x2b4)+_0x1233cf(0x201)+'>')+escHtml(_0x3b58d)+(_0x1233cf(0x16a)+_0x1233cf(0x2e7)+'v>'))[_0x1233cf(0x1ed)](''),_0x2eb214[_0x1233cf(0x1d5)+'L']=_0xd40dbb;}let searchType=_0x532b20(0x27b)+'s',debounceTimer=null;function setSearchType(_0x3e936c){const _0x3da1aa=_0x532b20,_0x54a148={'KsFBV':'sBtnCM','qCAOq':'active','Ruixt':'sBtnPCS','zzxuw':function(_0x2c898d,_0x206a7c){return _0x2c898d===_0x206a7c;},'pkFVB':'procedur'+'e','vzOIF':_0x3da1aa(0x2e0)+_0x3da1aa(0x295),'ObYks':function(_0x5c812b){return _0x5c812b();}};searchType=_0x3e936c,document[_0x3da1aa(0x1d2)+_0x3da1aa(0x2f3)](_0x54a148[_0x3da1aa(0x2eb)])['classLis'+'t'][_0x3da1aa(0x278)](_0x54a148[_0x3da1aa(0x316)],_0x3e936c===_0x3da1aa(0x27b)+'s'),document[_0x3da1aa(0x1d2)+'ntById'](_0x54a148[_0x3da1aa(0x2fe)])[_0x3da1aa(0x2b1)+'t'][_0x3da1aa(0x278)](_0x3da1aa(0x2f6),_0x54a148['zzxuw'](_0x3e936c,_0x54a148[_0x3da1aa(0x289)]));const _0x22f4e1=document[_0x3da1aa(0x1d2)+'ntById'](_0x54a148['vzOIF'])[_0x3da1aa(0x2ab)][_0x3da1aa(0x2a0)]();if(_0x22f4e1[_0x3da1aa(0x215)]>=0x2)_0x54a148['ObYks'](searchCodes);}function debounceSearch(){const _0x98eda8=_0x532b20,_0x254237={'KFnSi':'searchIn'+'put'};clearTimeout(debounceTimer);const _0x3e95f9=document[_0x98eda8(0x1d2)+_0x98eda8(0x2f3)](_0x254237[_0x98eda8(0x2ef)])[_0x98eda8(0x2ab)][_0x98eda8(0x2a0)]();if(_0x3e95f9['length']<0x2){document[_0x98eda8(0x1d2)+_0x98eda8(0x2f3)]('searchRe'+_0x98eda8(0x26c))[_0x98eda8(0x1d5)+'L']=_0x98eda8(0x2f4)+'ss=\x22empt'+_0x98eda8(0x1ae)+_0x98eda8(0x24f)+_0x98eda8(0x24a)+_0x98eda8(0x175)+_0x98eda8(0x1cb)+'พิมพ์อย่'+'างน้อย\x202'+'\x20ตัวอักษ'+_0x98eda8(0x20a);return;}debounceTimer=setTimeout(searchCodes,0x17c);}async function searchCodes(){const _0x49f8e9=_0x532b20,_0x1841cb={'nZiPl':function(_0x16664b,_0x58c554,_0x528c8d,_0x1b70da){return _0x16664b(_0x58c554,_0x528c8d,_0x1b70da);},'OBmKJ':'searchRe'+_0x49f8e9(0x26c)},_0xe77ca=document['getEleme'+_0x49f8e9(0x2f3)](_0x49f8e9(0x2e0)+_0x49f8e9(0x295))[_0x49f8e9(0x2ab)]['trim']();if(_0xe77ca['length']<0x2)return;loading(!![]);try{const _0x791f33=await _0x1841cb['nZiPl'](nlmSearch,searchType,_0xe77ca,0x64);renderList(_0x791f33[0x3],_0x1841cb[_0x49f8e9(0x205)],_0x791f33[0x0]);}catch(_0x397996){document[_0x49f8e9(0x1d2)+'ntById'](_0x49f8e9(0x1f0)+_0x49f8e9(0x26c))[_0x49f8e9(0x1d5)+'L']=_0x49f8e9(0x2f4)+'ss=\x22aler'+_0x49f8e9(0x1cd)+_0x49f8e9(0x21f)+_0x49f8e9(0x23f)+_0x49f8e9(0x248)+_0x49f8e9(0x1c0)+'tion-cir'+_0x49f8e9(0x22b)+_0x49f8e9(0x2e9)+_0x49f8e9(0x2f5)+'พลาด:\x20'+escHtml(_0x397996['message']||_0x397996)+(_0x49f8e9(0x253)+_0x49f8e9(0x297)+_0x49f8e9(0x1e9)+_0x49f8e9(0x2d5)+_0x49f8e9(0x2ed)+'เชื่อมต่'+'ออินเทอร'+'์เน็ต\x20หร'+'ือเปิดไฟ'+_0x49f8e9(0x1bb)+'eb\x20Serve'+'r\x20แทน\x20fi'+_0x49f8e9(0x28e)+'mall></d'+_0x49f8e9(0x2bd));}loading(![]);}function quickSearch(_0x26485a){const _0x2ca840=_0x532b20,_0x847db={'CQoqc':function(_0x458568){return _0x458568();}};document[_0x2ca840(0x1d2)+_0x2ca840(0x2f3)](_0x2ca840(0x2e0)+_0x2ca840(0x295))[_0x2ca840(0x2ab)]=_0x26485a,_0x847db[_0x2ca840(0x203)](searchCodes);}function _0x3eac(_0x338c8e,_0x116df6){_0x338c8e=_0x338c8e-0x162;const _0x3defd0=_0x3def();let _0x3eaca3=_0x3defd0[_0x338c8e];if(_0x3eac['XlLyvH']===undefined){var _0x1cbfb3=function(_0x93042e){const _0x4e55f3='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=';let _0xa9a206='',_0x4886be='';for(let _0xf0abdb=0x0,_0x3b0250,_0x3e61f0,_0x320145=0x0;_0x3e61f0=_0x93042e['charAt'](_0x320145++);~_0x3e61f0&&(_0x3b0250=_0xf0abdb%0x4?_0x3b0250*0x40+_0x3e61f0:_0x3e61f0,_0xf0abdb++%0x4)?_0xa9a206+=String['fromCharCode'](0xff&_0x3b0250>>(-0x2*_0xf0abdb&0x6)):0x0){_0x3e61f0=_0x4e55f3['indexOf'](_0x3e61f0);}for(let _0xc14c46=0x0,_0xea1466=_0xa9a206['length'];_0xc14c46<_0xea1466;_0xc14c46++){_0x4886be+='%'+('00'+_0xa9a206['charCodeAt'](_0xc14c46)['toString'](0x10))['slice'](-0x2);}return decodeURIComponent(_0x4886be);};_0x3eac['LxfMBl']=_0x1cbfb3,_0x3eac['cNPvtY']={},_0x3eac['XlLyvH']=!![];}const _0x47d493=_0x3defd0[0x0],_0x222dfe=_0x338c8e+_0x47d493,_0x288da9=_0x3eac['cNPvtY'][_0x222dfe];return!_0x288da9?(_0x3eaca3=_0x3eac['LxfMBl'](_0x3eaca3),_0x3eac['cNPvtY'][_0x222dfe]=_0x3eaca3):_0x3eaca3=_0x288da9,_0x3eaca3;}let hierType='diagnosi'+'s';function setHierType(_0x8762aa){const _0x5e40cf=_0x532b20,_0x34d308={'uzpVg':'diagnosi'+'s'};hierType=_0x8762aa,document[_0x5e40cf(0x1d2)+_0x5e40cf(0x2f3)](_0x5e40cf(0x1b1))[_0x5e40cf(0x2b1)+'t'][_0x5e40cf(0x278)]('active',_0x8762aa===_0x34d308[_0x5e40cf(0x1ca)]),document[_0x5e40cf(0x1d2)+_0x5e40cf(0x2f3)](_0x5e40cf(0x320))[_0x5e40cf(0x2b1)+'t']['toggle'](_0x5e40cf(0x2f6),_0x8762aa===_0x5e40cf(0x322)+'e');}async function getHierarchy(){const _0x24d67f=_0x532b20,_0x4c3aa5={'PLNJD':'collapse'+'d','gQZPW':function(_0x193408,_0x1116ba){return _0x193408(_0x1116ba);},'xuzSs':_0x24d67f(0x25e)+'t','WDsNK':function(_0x262c28,_0x25e228){return _0x262c28(_0x25e228);},'gzESe':function(_0x41910f,_0x1c3db4,_0xe2884f,_0x56f945){return _0x41910f(_0x1c3db4,_0xe2884f,_0x56f945);},'LbtDm':function(_0x35e0e7,_0x4a593a){return _0x35e0e7===_0x4a593a;},'iTsjm':'<div\x20cla'+_0x24d67f(0x273)+_0x24d67f(0x280)+_0x24d67f(0x1da)+_0x24d67f(0x19a),'VVVEE':_0x24d67f(0x296)},_0x463efe=document[_0x24d67f(0x1d2)+_0x24d67f(0x2f3)](_0x4c3aa5['xuzSs'])[_0x24d67f(0x2ab)]['trim']()['toUpperC'+'ase']();if(!_0x463efe){document[_0x24d67f(0x1d2)+_0x24d67f(0x2f3)]('hierInpu'+'t')[_0x24d67f(0x1bd)]();return;}const _0x57431e=_0x463efe[_0x24d67f(0x247)](/\./g,'');_0x4c3aa5[_0x24d67f(0x2e5)](loading,!![]);try{const _0x2d765d=await _0x4c3aa5['gzESe'](nlmSearch,hierType,_0x57431e,0xc8),_0x2e1413=(_0x2d765d[0x3]||[])[_0x24d67f(0x2e1)](([_0x2c7a74])=>_0x2c7a74[_0x24d67f(0x247)](/\./g,'')['startsWi'+'th'](_0x57431e)),_0x88b521=document['getEleme'+'ntById'](_0x24d67f(0x162)+'yResults');if(_0x4c3aa5[_0x24d67f(0x2f0)](_0x2e1413[_0x24d67f(0x215)],0x0)){_0x88b521['innerHTM'+'L']=_0x24d67f(0x2f4)+'ss=\x22aler'+_0x24d67f(0x1cd)+'warning\x22'+'>ไม่พบโค'+_0x24d67f(0x18f)+_0x24d67f(0x2ad)+'\x20\x22'+_0x57431e+'\x22</div>',loading(![]);return;}const _0x4b035e={};_0x2e1413[_0x24d67f(0x2dd)](([_0x2be62a,_0x4f3087])=>{const _0x581cdf=_0x24d67f,_0x5dc239=_0x2be62a[_0x581cdf(0x247)](/\./g,'')['substrin'+'g'](0x0,0x3);if(!_0x4b035e[_0x5dc239])_0x4b035e[_0x5dc239]=[];_0x4b035e[_0x5dc239][_0x581cdf(0x1d0)]([_0x2be62a,_0x4f3087]);});let _0x49e796='<div\x20cla'+'ss=\x22stat'+'-pill\x22><'+'i\x20class='+'\x22fas\x20fa-'+'sitemap\x20'+_0x24d67f(0x1be)+_0x24d67f(0x189)+_0x24d67f(0x2cc)+_0x24d67f(0x25a)+'\x22'+_0x57431e+_0x24d67f(0x268)+_0x2e1413['length']+('\x20รายการ<'+_0x24d67f(0x240));_0x49e796+=_0x4c3aa5[_0x24d67f(0x198)],Object[_0x24d67f(0x31d)](_0x4b035e)['forEach'](([_0x36397e,_0x587a7d],_0x44a9dd)=>{const _0x5fce62=_0x24d67f;_0x49e796+=_0x5fce62(0x244)+_0x5fce62(0x194)+_0x5fce62(0x23d)+'dion-ite'+_0x5fce62(0x312)+_0x5fce62(0x28f)+_0x5fce62(0x26a)+_0x5fce62(0x2ea)+'cordion-'+'header\x22>'+'\x0a\x20\x20\x20\x20\x20\x20\x20'+_0x5fce62(0x2d6)+_0x5fce62(0x245)+'=\x22accord'+'ion-butt'+'on\x20'+(_0x44a9dd>0x0?_0x4c3aa5[_0x5fce62(0x220)]:'')+(_0x5fce62(0x305)+_0x5fce62(0x1c5)+_0x5fce62(0x2c1)+_0x5fce62(0x1a9)+_0x5fce62(0x252)+_0x5fce62(0x1d1)+_0x5fce62(0x308)+_0x5fce62(0x2a1)+_0x5fce62(0x26e)+_0x5fce62(0x1dc))+_0x44a9dd+('\x22>\x0a\x20\x20\x20\x20\x20'+'\x20\x20\x20\x20\x20\x20\x20<'+_0x5fce62(0x1d4)+_0x5fce62(0x16e)+_0x5fce62(0x2c6)+_0x5fce62(0x195))+_0x4c3aa5['gQZPW'](escHtml,_0x36397e)+(_0x5fce62(0x16a)+'\x20\x20\x20\x20\x20\x20\x20\x20'+_0x5fce62(0x261)+_0x5fce62(0x306)+'\x22flex:1\x22'+'>')+escHtml(_0x587a7d[0x0][0x1])+(_0x5fce62(0x16a)+_0x5fce62(0x2c1)+'\x20\x20\x20\x20<spa'+_0x5fce62(0x1ff)+'\x22badge\x20b'+_0x5fce62(0x1cf)+_0x5fce62(0x1a5)+'\x22>')+_0x587a7d['length']+('</span>\x0a'+'\x20\x20\x20\x20\x20\x20\x20\x20'+_0x5fce62(0x1e0)+'on>\x0a\x20\x20\x20\x20'+'\x20\x20\x20\x20</h2'+_0x5fce62(0x304)+'\x20\x20<div\x20i'+_0x5fce62(0x28d))+_0x44a9dd+(_0x5fce62(0x1a3)+_0x5fce62(0x23c)+_0x5fce62(0x2d7)+'pse\x20coll'+'apse\x20')+(_0x44a9dd===0x0?_0x5fce62(0x192):'')+(_0x5fce62(0x28f)+'\x20\x20\x20\x20\x20<di'+_0x5fce62(0x18d)+'\x22accordi'+_0x5fce62(0x1e1)+_0x5fce62(0x212)+_0x5fce62(0x2c1)+'\x20\x20')+_0x587a7d['map'](([_0x417cbc,_0x499c68])=>_0x5fce62(0x292)+_0x5fce62(0x27f)+_0x5fce62(0x194)+'s=\x22resul'+'t-row\x22>\x0a'+_0x5fce62(0x2c1)+_0x5fce62(0x2c1)+_0x5fce62(0x16c)+_0x5fce62(0x1d7)+_0x5fce62(0x2a6)+'>'+escHtml(_0x417cbc)+(_0x5fce62(0x16a)+'\x20\x20\x20\x20\x20\x20\x20\x20'+'\x20\x20\x20\x20\x20\x20\x20\x20'+_0x5fce62(0x16c)+'ass=\x22des'+'c\x22>')+escHtml(_0x499c68)+(_0x5fce62(0x16a)+_0x5fce62(0x2c1)+'\x20\x20\x20\x20\x20\x20</'+'div>'))[_0x5fce62(0x1ed)]('')+('\x0a\x20\x20\x20\x20\x20\x20\x20'+_0x5fce62(0x25f)+_0x5fce62(0x304)+_0x5fce62(0x275)+'\x0a\x20\x20\x20\x20\x20\x20<'+_0x5fce62(0x240));}),_0x49e796+=_0x4c3aa5['VVVEE'],_0x88b521[_0x24d67f(0x1d5)+'L']=_0x49e796;}catch{document[_0x24d67f(0x1d2)+_0x24d67f(0x2f3)](_0x24d67f(0x162)+'yResults')['innerHTM'+'L']='<div\x20cla'+_0x24d67f(0x1c6)+_0x24d67f(0x1cd)+_0x24d67f(0x21f)+'เกิดข้อผ'+'ิดพลาด</'+'div>';}loading(![]);}function quickHier(_0x113dff){const _0x5aa0dc=_0x532b20,_0x4c5ee9={'sfFKZ':'hierInpu'+'t','gExHf':function(_0x4244b9){return _0x4244b9();}};document[_0x5aa0dc(0x1d2)+_0x5aa0dc(0x2f3)](_0x4c5ee9[_0x5aa0dc(0x276)])['value']=_0x113dff,_0x4c5ee9[_0x5aa0dc(0x1db)](getHierarchy);}function updateBodySystems(){const _0x11732e=_0x532b20,_0x2043a5={'eoiBv':_0x11732e(0x2d4)+'on'},_0x530776=document['getEleme'+_0x11732e(0x2f3)](_0x2043a5['eoiBv'])[_0x11732e(0x2ab)],_0x492682=BODY_SYSTEMS[_0x530776]||[{'v':'0','l':_0x11732e(0x267)+'อมูล\x20bod'+_0x11732e(0x30b)+')'}];document[_0x11732e(0x1d2)+'ntById']('bodySyst'+'em')[_0x11732e(0x1d5)+'L']=_0x492682[_0x11732e(0x22a)](_0x2d8c92=>_0x11732e(0x31a)+_0x11732e(0x2ff)+_0x2d8c92['v']+'\x22>'+_0x2d8c92['l']+(_0x11732e(0x27d)+'>'))[_0x11732e(0x1ed)]('');}async function searchByBodySystem(){const _0x4502d3=_0x532b20,_0x3abba2={'BtMVU':_0x4502d3(0x2d4)+'on','BEbnN':_0x4502d3(0x232)+'em','LXFAK':function(_0x16e725,_0x5ea038){return _0x16e725(_0x5ea038);},'zJoyS':_0x4502d3(0x232)+_0x4502d3(0x233)+'s'},_0x4290dc=document[_0x4502d3(0x1d2)+'ntById'](_0x3abba2[_0x4502d3(0x1b2)])[_0x4502d3(0x2ab)],_0x1cd28d=document['getEleme'+_0x4502d3(0x2f3)](_0x3abba2['BEbnN'])[_0x4502d3(0x2ab)],_0x49461d=_0x4290dc+_0x1cd28d;_0x3abba2[_0x4502d3(0x2aa)](loading,!![]);try{const _0x2bca4c=await nlmSearch('procedur'+'e',_0x49461d,0xc8),_0x3ab2d9=(_0x2bca4c[0x3]||[])[_0x4502d3(0x2e1)](([_0xe32845])=>_0xe32845[_0x4502d3(0x1fd)+'th'](_0x49461d));renderList(_0x3ab2d9,_0x3abba2['zJoyS'],_0x3ab2d9[_0x4502d3(0x215)]);}catch{document[_0x4502d3(0x1d2)+'ntById'](_0x3abba2['zJoyS'])[_0x4502d3(0x1d5)+'L']='<div\x20cla'+_0x4502d3(0x1c6)+'t\x20alert-'+'danger\x22>'+'เกิดข้อผ'+_0x4502d3(0x291)+_0x4502d3(0x266);}loading(![]);}let activeChapterEl=null;async function loadChapter(_0x1ce420,_0x55efe0){const _0xfbc052=_0x532b20,_0x3322ca={'eiVth':_0xfbc052(0x2f6),'nHven':function(_0x1dc442,_0x191529){return _0x1dc442===_0x191529;},'iragF':'</div>'};if(activeChapterEl)activeChapterEl['classLis'+'t']['remove'](_0xfbc052(0x2f6));_0x55efe0[_0xfbc052(0x2b1)+'t'][_0xfbc052(0x227)](_0x3322ca[_0xfbc052(0x294)]),activeChapterEl=_0x55efe0;const _0x12a502=document[_0xfbc052(0x1d2)+_0xfbc052(0x2f3)]('category'+_0xfbc052(0x16f));_0x12a502[_0xfbc052(0x1d5)+'L']=_0xfbc052(0x2f4)+_0xfbc052(0x188)+_0xfbc052(0x1b0)+_0xfbc052(0x288)+'iv\x20class'+'=\x22spinne'+'r-border'+_0xfbc052(0x2fc)+_0xfbc052(0x214)+_0xfbc052(0x2de)+_0xfbc052(0x17e)+_0xfbc052(0x1f4)+_0xfbc052(0x274);try{const _0x539de9=await nlmSearch(_0xfbc052(0x27b)+'s',_0x1ce420[_0xfbc052(0x30a)],0x1f4),_0x1091db=(_0x539de9[0x3]||[])[_0xfbc052(0x2e1)](([_0x3445fb])=>_0x3445fb[_0xfbc052(0x247)](/\./g,'')[_0xfbc052(0x1fd)+'th'](_0x1ce420['code']));if(_0x3322ca[_0xfbc052(0x1c3)](_0x1091db[_0xfbc052(0x215)],0x0)){_0x12a502['innerHTM'+'L']=_0xfbc052(0x2f4)+_0xfbc052(0x1c6)+_0xfbc052(0x1cd)+_0xfbc052(0x1ab)+_0xfbc052(0x1d3)+_0xfbc052(0x20d)+_0xfbc052(0x239)+'iv>';return;}const _0x35853f={};_0x1091db[_0xfbc052(0x2dd)](([_0x2f36a7,_0x88580d])=>{const _0x12c7b0=_0xfbc052,_0x3cf270=_0x2f36a7[_0x12c7b0(0x247)](/\./g,'')[_0x12c7b0(0x167)+'g'](0x0,0x3);if(!_0x35853f[_0x3cf270])_0x35853f[_0x3cf270]={'hdr':'','subs':[]};if(_0x2f36a7['replace'](/\./g,'')===_0x3cf270||!_0x35853f[_0x3cf270][_0x12c7b0(0x31c)])_0x35853f[_0x3cf270]['hdr']=_0x88580d;if(_0x2f36a7[_0x12c7b0(0x247)](/\./g,'')!==_0x3cf270)_0x35853f[_0x3cf270][_0x12c7b0(0x28a)][_0x12c7b0(0x1d0)]([_0x2f36a7,_0x88580d]);});let _0x43de70='\x0a\x20\x20\x20\x20\x20\x20<'+'h6\x20class'+_0xfbc052(0x1e8)+_0xfbc052(0x168)+'style=\x22c'+'olor:var'+_0xfbc052(0x22c)+_0xfbc052(0x1c7)+'>'+escHtml(_0x1ce420['range'])+('</h6>\x0a\x20\x20'+_0xfbc052(0x281)+_0xfbc052(0x2ee)+_0xfbc052(0x1fe)+'\x20small\x20m'+_0xfbc052(0x24c))+escHtml(_0x1ce420[_0xfbc052(0x243)])+(_0xfbc052(0x298)+_0xfbc052(0x19b)+_0xfbc052(0x20c)+_0xfbc052(0x1c9)+'\x22>')+Object['keys'](_0x35853f)['length']+(_0xfbc052(0x221)+'ย\x20&nbsp;'+'·&nbsp;\x20')+_0x1091db[_0xfbc052(0x215)]+(_0xfbc052(0x200)+_0xfbc052(0x262)+_0xfbc052(0x18e)+'\x20class=\x22'+'accordio'+_0xfbc052(0x230)+_0xfbc052(0x1a4));Object[_0xfbc052(0x31d)](_0x35853f)['forEach'](([_0x39d043,{hdr:_0x3c6508,subs:_0x36a7ae}],_0x52753a)=>{const _0x26e918=_0xfbc052;_0x43de70+='\x0a\x20\x20\x20\x20\x20\x20<'+'div\x20clas'+'s=\x22accor'+_0x26e918(0x21e)+_0x26e918(0x312)+_0x26e918(0x28f)+'\x20\x20\x20<h2\x20c'+'lass=\x22ac'+_0x26e918(0x1e3)+'header\x22>'+_0x26e918(0x292)+'\x20\x20\x20<butt'+'on\x20class'+'=\x22accord'+'ion-butt'+_0x26e918(0x1f8)+_0x26e918(0x2d2)+_0x26e918(0x1ef)+'\x22button\x22'+_0x26e918(0x292)+_0x26e918(0x19f)+_0x26e918(0x284)+_0x26e918(0x242)+'lapse\x22\x20d'+'ata-bs-t'+_0x26e918(0x2bb)+'cAcc'+_0x52753a+(_0x26e918(0x28f)+'\x20\x20\x20\x20\x20\x20\x20<'+'span\x20cla'+_0x26e918(0x16e)+_0x26e918(0x2c6)+'e-2\x22>')+escHtml(_0x39d043)+('</span>\x0a'+_0x26e918(0x2c1)+_0x26e918(0x261)+'n\x20style='+_0x26e918(0x2db)+'font-siz'+_0x26e918(0x184)+'\x22>')+escHtml(_0x3c6508)+('</span>\x0a'+_0x26e918(0x2c1)+'\x20\x20\x20\x20')+(_0x36a7ae[_0x26e918(0x215)]?_0x26e918(0x16c)+'ass=\x22bad'+'ge\x20bg-se'+'condary\x20'+_0x26e918(0x2c0)+_0x36a7ae['length']+_0x26e918(0x32f):'')+(_0x26e918(0x292)+'\x20\x20\x20</but'+_0x26e918(0x1bc)+_0x26e918(0x323)+_0x26e918(0x196)+'\x20\x20\x20<div\x20'+_0x26e918(0x2b5))+_0x52753a+(_0x26e918(0x1a3)+_0x26e918(0x23c)+_0x26e918(0x2d7)+_0x26e918(0x29f)+'apse\x22>\x0a\x20'+'\x20\x20\x20\x20\x20\x20\x20\x20'+'\x20<div\x20cl'+_0x26e918(0x181)+'ordion-b'+_0x26e918(0x178)+'>\x0a\x20\x20\x20\x20\x20\x20'+_0x26e918(0x330))+(_0x36a7ae[_0x26e918(0x215)]?_0x36a7ae['map'](([_0x5dcc96,_0x21e2c3])=>_0x26e918(0x292)+_0x26e918(0x27f)+_0x26e918(0x194)+_0x26e918(0x290)+'t-row\x22>\x0a'+'\x20\x20\x20\x20\x20\x20\x20\x20'+'\x20\x20\x20\x20\x20\x20\x20\x20'+_0x26e918(0x16c)+'ass=\x22cod'+'e-badge\x22'+'>'+escHtml(_0x5dcc96)+('</span>\x0a'+'\x20\x20\x20\x20\x20\x20\x20\x20'+_0x26e918(0x2c1)+_0x26e918(0x16c)+_0x26e918(0x21d)+_0x26e918(0x32a))+escHtml(_0x21e2c3)+('</span>\x0a'+_0x26e918(0x2c1)+'\x20\x20\x20\x20\x20\x20</'+'div>'))['join'](''):_0x26e918(0x16c)+_0x26e918(0x2a2)+_0x26e918(0x2a7)+_0x26e918(0x1a7)+_0x26e918(0x236)+'-code</s'+_0x26e918(0x31f))+(_0x26e918(0x292)+'\x20\x20\x20</div'+_0x26e918(0x304)+_0x26e918(0x275)+_0x26e918(0x244)+_0x26e918(0x240));}),_0x43de70+=_0x3322ca['iragF'],_0x12a502['innerHTM'+'L']=_0x43de70;}catch{_0x12a502['innerHTM'+'L']='<div\x20cla'+_0xfbc052(0x1c6)+_0xfbc052(0x1cd)+_0xfbc052(0x21f)+_0xfbc052(0x2fb)+_0xfbc052(0x291)+'div>';}}function initChapterList(){const _0x217e3a=_0x532b20,_0x39ad77={'OCooo':'chapterL'+'ist'};document[_0x217e3a(0x1d2)+'ntById'](_0x39ad77[_0x217e3a(0x269)])[_0x217e3a(0x1d5)+'L']=CHAPTERS['map'](_0x4283ac=>'\x0a\x20\x20\x20\x20<di'+'v\x20class='+_0x217e3a(0x1ba)+'-card\x22\x20o'+_0x217e3a(0x1d6)+_0x217e3a(0x1af)+_0x217e3a(0x197)+JSON['stringif'+'y'](_0x4283ac)['replace'](/"/g,_0x217e3a(0x2fd))+(',\x20this)\x22'+_0x217e3a(0x304)+_0x217e3a(0x2f4)+_0x217e3a(0x1f1)+_0x217e3a(0x2ba))+escHtml(_0x4283ac[_0x217e3a(0x258)])+('</div>\x0a\x20'+_0x217e3a(0x1c4)+_0x217e3a(0x18d)+_0x217e3a(0x271))+escHtml(_0x4283ac['desc'])+(_0x217e3a(0x2c3)+_0x217e3a(0x25f)+'>'))[_0x217e3a(0x1ed)]('');}document['addEvent'+'Listener'](_0x532b20(0x171)+_0x532b20(0x210),()=>{const _0x52790a=_0x532b20,_0x17c2d5={'Cptxt':function(_0x3c17a8,_0x1be266){return _0x3c17a8===_0x1be266;},'iobYz':'Enter','ZJSvG':function(_0x23a709){return _0x23a709();}};document[_0x52790a(0x1d2)+'ntById'](_0x52790a(0x25e)+'t')[_0x52790a(0x2bf)+_0x52790a(0x2ca)](_0x52790a(0x1b9),_0x452acb=>{const _0x4aeca0=_0x52790a;if(_0x17c2d5[_0x4aeca0(0x2c2)](_0x452acb[_0x4aeca0(0x2ac)],_0x17c2d5[_0x4aeca0(0x2c9)]))_0x17c2d5[_0x4aeca0(0x1ee)](getHierarchy);}),updateBodySystems(),initChapterList();});
+</script>
+</body>
+</html>
